@@ -1,0 +1,4 @@
+RPAFenable On
+RPAFsethostname On
+RPAFproxy_ips <% Array(@proxies).each do |proxy_ip| %> <%= proxy_ip %><% end %>
+RPAFHeader X-Real-IP

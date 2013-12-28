@@ -1,0 +1,41 @@
+sub handle_bot {
+    <% if not Array(@bad_list).empty? %>
+    # Common user-agent for ban access to site (spiders)
+    if (req.http.user-agent ~ "<%= @bad_list[0] %>"
+        <% Array(@bad_list)[1..-1].each do |pattern|%>
+        <% next if !pattern || pattern.strip.length == 0 %>
+        || req.http.user-agent ~ "(?i)<%= pattern %>"
+        <% end %>
+    ) {
+        error 403 "You are banned from this site.";
+    }
+    <% end %>
+
+    <% if not Array(@ban_user_agent_patterns).empty? %>
+    # Project specific user-agent for ban access to site (spiders)
+    if (req.http.user-agent ~ "(?i)<%= @ban_user_agent_patterns[0] %>"
+        <% Array(@ban_user_agent_patterns)[1..-1].each do |pattern|%>
+        <% next if !pattern || pattern.strip.length == 0 %>
+        || req.http.user-agent ~ "(?i)<%= pattern %>"
+        <% end %>
+    ) {
+        error 403 "You are banned from this site.";
+     }
+    <% end %>
+
+    <% if not Array(@other_list).empty? || Array(node['varnish']['other_bot_cut_attrs']).empty? %>
+    # Other, just cut some attributes from url
+    if (req.http.user-agent ~ "(?i)<%= @other_list[0] %>"
+        <% Array(@other_list)[1..-1].each do |pattern|%>
+        <% next if !pattern || pattern.strip.length == 0 %>
+        || req.http.user-agent ~ "(?i)<%= pattern %>"
+        <% end %>
+    ) {
+        <% node['varnish']['other_bot_cut_attrs'].each do |item| %>
+        set req.url = regsuball (req.url, "(?i)(\?|&)<%= item %>=[%.\-_A-z0-9]+&?", "\1");
+        <% end %>
+    }
+    <% end %>
+
+
+}

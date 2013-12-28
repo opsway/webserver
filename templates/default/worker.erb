@@ -1,0 +1,97 @@
+<VirtualHost *:8080>
+  DocumentRoot <%= node['apache']['docroot'] %>
+
+  # Detect the nginx header and set the header magento expects
+  # We need this for SSL offloading (SSL termination before Apache)
+  SetEnvIfNoCase X_FORWARDED_PROTOCOL https HTTPS=on
+
+  RewriteEngine on
+
+  #Prevention of vulnerability http://www.kb.cert.org/vuls/id/867593
+  RewriteCond %{REQUEST_METHOD} ^(TRACE|TRACK)
+  RewriteRule .* - [F]
+
+  #This is necesary not to fail PCI DSS audit
+  <Directory /usr/share/apache2/icons>
+    Options -Indexes
+  </Directory>
+
+  <Directory <%= node['apache']['docroot'] %>>
+    Options FollowSymLinks
+    DirectoryIndex index.php
+    AllowOverride None
+        
+    RewriteEngine on
+    RewriteCond %{REQUEST_URI} !/server-status
+    RewriteCond %{REQUEST_URI} !^/(media|skin|js)/
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-l
+    RewriteRule .* index.php [L]
+
+    AddDefaultCharset Off
+    
+    # Turn off Etags usage
+    Header unset ETag
+    FileETag None
+
+  </Directory>
+
+  <Directory <%= node['apache']['docroot'] %>/var>
+    Order deny,allow
+    Deny from all
+  </Directory>
+
+  <Directory <%= node['apache']['docroot'] %>/errors>
+    <FilesMatch "\.(xml|phtml)$">
+        Deny from all
+    </FilesMatch>
+  </Directory>
+
+  <Directory <%= node['apache']['docroot'] %>/includes>
+    Order deny,allow
+    Deny from all
+  </Directory>
+
+  <Directory <%= node['apache']['docroot'] %>/pkginfo>
+    Order deny,allow
+    Deny from all
+  </Directory>
+
+  <Directory <%= node['apache']['docroot'] %>/downloader>
+    RemoveOutputFilter DEFLATE
+    RemoveOutputFilter GZIP
+    <Files ~ "\.(cfg|ini|xml)$">
+        Order Allow,Deny
+        Deny from all
+    </Files>
+  </Directory>
+
+  <Directory <%= node['apache']['docroot'] %>/template>
+    Order deny,allow
+    Deny from all
+  </Directory>
+
+  <Directory <%= node['apache']['docroot'] %>/app>
+    Order deny,allow
+    Deny from all
+  </Directory>
+
+  <Directory <%= node['apache']['docroot'] %>/shell>
+    Order deny,allow
+    Deny from all
+  </Directory>
+
+  <LocationMatch "/(index\.php/)?admin/">
+      <IfModule mod_php5.c>
+        php_value max_input_vars 100000
+      </IfModule>
+  </LocationMatch>
+
+  LogLevel info
+
+  ErrorLog "<%= node['apache']['log_dir'] %>/error.log"
+  CustomLog "<%= node['apache']['log_dir'] %>/access.log" combinedlog
+  LogFormat "%h %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-agent}i\" %Dus" combinedlog 
+
+</VirtualHost>

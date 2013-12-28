@@ -1,0 +1,66 @@
+upstream varnish {
+  server 127.0.0.1:<%= node['varnish']['listen_port'] %>;
+}
+
+server {
+
+  listen 80;
+
+  root   /var/www/current;
+
+  # Block access to "hidden" files and directories whose names begin with a
+  # period. This includes directories used by version control systems such
+  # as Subversion or Git to store control files.
+  location ~ (^|/)\. {
+    return 403;
+  }
+
+  location ~* \.(css|js|ico|pdf|flv|jpg|jpe?g|png|gif|swf|mp3|mp4|eot|woff|ttf|cur|svg)$ {
+    access_log off;
+    try_files $uri @varnish;
+    expires max;
+  }
+
+  ## TODO: 
+  ## We'll have to find a way to allow 
+  ##     SetEnvIf Request_URI "/(api|soap|catalog_product_gallery|cms_wysiwyg_images|skin/frontend|media|healthchecker)" API_REQUEST
+  ## when we Basic authentication
+  ## The same applies for SSL 
+
+  location / {
+    <% if node['nginx']['http_auth_user'] != "" %>
+    auth_basic "Restricted";
+    auth_basic_user_file <%= node['nginx']['dir'] %>/htpasswd;
+    <% end %>
+
+    <% if node['nginx']['no_auth_ip'] &&
+      node['nginx']['no_auth_ip'].length > 0 %>
+      <% node['nginx']['no_auth_ip'].each do | ip | %>
+    allow <%= ip %>;
+      <% end %>
+    deny all;
+
+    satisfy any;
+    <% end %>
+
+    try_files @varnish @varnish;
+  }
+
+  location @varnish {
+    proxy_set_header X-Real-IP $proxy_add_x_forwarded_for;
+    proxy_set_header Host $http_host;
+    proxy_redirect off;
+    proxy_max_temp_file_size 0;
+    proxy_read_timeout 900s;
+    proxy_connect_timeout 1s;
+    proxy_pass http://varnish;
+  }
+
+  location = /nginx_status {
+    stub_status on;
+    access_log off;
+    allow 127.0.0.1;
+    allow <%= node.ipaddress %>;
+    deny all;
+  }
+}
