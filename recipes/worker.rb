@@ -22,6 +22,15 @@ end
 
 apache_site 'worker'
 
+bash "create_php_apache_dir" do
+  code <<-EOF
+if [ ! -d "/etc/php5/apache2/" ]; then
+mkdir /etc/php5/apache2/
+fi
+EOF
+end
+
+
 template "/etc/php5/apache2/php.ini" do
   source "php.ini.erb"
   owner "root"
